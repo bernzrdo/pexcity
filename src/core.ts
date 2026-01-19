@@ -1,16 +1,33 @@
 import * as THREE from 'three'
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 export const renderer = new THREE.WebGLRenderer()
 document.body.appendChild(renderer.domElement)
 
 export const scene = new THREE.Scene()
-export const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, .1, 1000)
+export const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, .1, 1000)
+
+// Pointer Lock
+document.addEventListener('click', ()=>renderer.domElement.requestPointerLock())
+export function isLocked(){ return !document.pointerLockElement || !document.hasFocus() }
 
 // Controls
-const controls = new PointerLockControls(camera, document.body)
-document.addEventListener('click', ()=>controls.lock())
-scene.add(controls.object)
+export const orbit = new THREE.Object3D()
+orbit.rotation.order = 'YXZ'
+scene.add(orbit)
+
+camera.position.z = 5
+orbit.add(camera)
+
+const scale = -.01
+
+document.body.addEventListener('mousemove', function(e){
+    if(isLocked()) return
+
+    orbit.rotateY(e.movementX * scale)
+    orbit.rotateX(e.movementY * scale)
+    orbit.rotation.z = 0
+
+})
 
 // Update
 const renderCallbacks: ((delta: number) => any)[] = []

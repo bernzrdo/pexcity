@@ -1,4 +1,4 @@
 import * as demo from '@/zone/demo'
-import './movement'
+import './player'
 
 demo.load()
