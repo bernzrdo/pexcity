@@ -62,14 +62,6 @@ const gltfLoader = new GLTFLoader()
 
 })()
 
-let isCar = false
-onKey('car', ()=>{
-    isCar = !isCar
-    console.log(isCar ? 'you are car' : 'you are not car')
-    carModel.scale.setScalar(isCar ? .7 : 0)
-    characterModel?.scale.setScalar(isCar ? 0 : 1)
-})
-
 onRender(delta=>{
 
     // input direction
