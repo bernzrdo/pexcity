@@ -18,7 +18,7 @@ const KEYMAP = {
     right: ['KeyD'],
     
     jump: ['Space'],
-    sprint: ['ShiftLeft', 'ControlLeft']
+    sprint: ['ShiftLeft']
 
 }
 
@@ -52,7 +52,6 @@ function setAction(name: Animation){
 
     const next = anim.actions[name]
     next.reset().play()
-    console.log(anim.actions, anim.currentAction)
     anim.actions[anim.currentAction].crossFadeTo(next, ANIM_TRANSITION, false)
 
     anim.currentAction = name

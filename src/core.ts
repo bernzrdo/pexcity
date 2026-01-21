@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { clamp } from 'three/src/math/MathUtils'
 
 export const renderer = new THREE.WebGLRenderer()
 document.body.appendChild(renderer.domElement)
@@ -18,13 +19,16 @@ scene.add(orbit)
 camera.position.z = 5
 orbit.add(camera)
 
-const scale = -.01
+const MOUSE_SENSITIVITY = .005
+const MIN = Math.PI * -.4
+const MAX = Math.PI * .05
 
 document.body.addEventListener('mousemove', function(e){
     if(isLocked()) return
 
-    orbit.rotateY(e.movementX * scale)
-    orbit.rotateX(e.movementY * scale)
+    orbit.rotateY(-e.movementX * MOUSE_SENSITIVITY)
+    orbit.rotateX(-e.movementY * MOUSE_SENSITIVITY)
+    orbit.rotation.x = clamp(orbit.rotation.x, MIN, MAX)
     orbit.rotation.z = 0
 
 })
