@@ -7,7 +7,6 @@ import carSrc from '@/assets/models/cars/sedan.glb'
 
 const SPEED = 3
 const SPRINT_SPEED = 5
-const CAR_SPEED = 15
 const GRAVITY = 15
 const JUMP = 6
 const DAMPING = 10
@@ -41,19 +40,16 @@ function setAnimation(name: Animation){
 }
 
 const gltfLoader = new GLTFLoader()
-let characterModel: THREE.Group
-let carModel: THREE.Group
 
 // load character model
 ;(async ()=>{
 
-    const { animations, scene } = await gltfLoader.loadAsync(charSrc)
-    characterModel = scene
+    const { animations, scene: model } = await gltfLoader.loadAsync(charSrc)
 
-    characterModel.scale.setScalar(1)
-    mesh.add(characterModel)
+    model.scale.setScalar(1)
+    mesh.add(model)
     
-    const mixer = new THREE.AnimationMixer(characterModel)
+    const mixer = new THREE.AnimationMixer(model)
     const actions: Partial<typeof anim['actions']> = {}
     for(let name of ANIMATIONS)
         actions[name] = mixer.clipAction(animations.find(a=>a.name == name)!)
@@ -63,17 +59,6 @@ let carModel: THREE.Group
     anim.currentAction = 'idle'
     
     // console.log(animations.map(a=>a.name).join('\n'))
-
-})()
-
-// load car model
-;(async ()=>{
-
-    const { scene } = await gltfLoader.loadAsync(carSrc)
-    carModel = scene
-
-    carModel.scale.setScalar(0)
-    mesh.add(carModel)
 
 })()
 
@@ -94,9 +79,7 @@ onRender(delta=>{
         +isKey('forward') - +isKey('back')
     )
 
-    let speed = 0
-    if(isCar) speed = CAR_SPEED
-    else speed = isKey('sprint') ? SPRINT_SPEED : SPEED
+    const speed = isKey('sprint') ? SPRINT_SPEED : SPEED
 
     if(inputDir.lengthSq() > 0){
         inputDir.normalize()
