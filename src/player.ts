@@ -1,37 +1,19 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { camera, orbit, onRender, scene, isLocked } from './core'
+import { camera, orbit, onRender, scene } from './core'
+import { isKey, onKey } from './input'
 import charSrc from '@/assets/models/characters/character-male-e.glb'
+import carSrc from '@/assets/models/cars/sedan.glb'
 
-const SPEED = 2
-const SPRINT_SPEED = 4
+const SPEED = 3
+const SPRINT_SPEED = 5
+const CAR_SPEED = 15
 const GRAVITY = 15
 const JUMP = 6
 const DAMPING = 10
 const ANIM_TRANSITION = .3
 
-const KEYMAP = {
-
-    forward: ['KeyW'],
-    back: ['KeyS'],
-    left: ['KeyA'],
-    right: ['KeyD'],
-    
-    jump: ['Space'],
-    sprint: ['ShiftLeft']
-
-}
-
 const ANIMATIONS = ['idle', 'walk', 'sprint', 'jump', 'fall'] as const
-
-const input: Record<string, true> = {}
-addEventListener('keydown', e=>{ input[e.code] = true })
-addEventListener('keyup', e=>{ delete input[e.code] })
-
-function state(action: keyof typeof KEYMAP): 0 | 1 {
-    if(isLocked()) return 0
-    return KEYMAP[action].some(key=>input[key]) ? 1 : 0
-}
 
 const mesh = new THREE.Object3D()
 scene.add(mesh)
@@ -47,7 +29,7 @@ let anim: {
     currentAction: Animation
 }
 
-function setAction(name: Animation){
+function setAnimation(name: Animation){
     if(!anim || anim.currentAction == name) return
 
     const next = anim.actions[name]
@@ -58,14 +40,20 @@ function setAction(name: Animation){
 
 }
 
+const gltfLoader = new GLTFLoader()
+let characterModel: THREE.Group
+let carModel: THREE.Group
+
+// load character model
 ;(async ()=>{
 
-    const { animations, scene: model } = await new GLTFLoader().loadAsync(charSrc)
+    const { animations, scene } = await gltfLoader.loadAsync(charSrc)
+    characterModel = scene
 
-    model.scale.setScalar(1)
-    mesh.add(model)
+    characterModel.scale.setScalar(1)
+    mesh.add(characterModel)
     
-    const mixer = new THREE.AnimationMixer(model)
+    const mixer = new THREE.AnimationMixer(characterModel)
     const actions: Partial<typeof anim['actions']> = {}
     for(let name of ANIMATIONS)
         actions[name] = mixer.clipAction(animations.find(a=>a.name == name)!)
@@ -78,16 +66,37 @@ function setAction(name: Animation){
 
 })()
 
+// load car model
+;(async ()=>{
+
+    const { scene } = await gltfLoader.loadAsync(carSrc)
+    carModel = scene
+
+    carModel.scale.setScalar(0)
+    mesh.add(carModel)
+
+})()
+
+let isCar = false
+onKey('car', ()=>{
+    isCar = !isCar
+    console.log(isCar ? 'you are car' : 'you are not car')
+    carModel.scale.setScalar(isCar ? .7 : 0)
+    characterModel?.scale.setScalar(isCar ? 0 : 1)
+})
+
 onRender(delta=>{
 
     // input direction
     const inputDir = new THREE.Vector3(
-        state('right') - state('left'),
+        +isKey('right') - +isKey('left'),
         0,
-        state('forward') - state('back')
+        +isKey('forward') - +isKey('back')
     )
 
-    const speed = state('sprint') ? SPRINT_SPEED : SPEED
+    let speed = 0
+    if(isCar) speed = CAR_SPEED
+    else speed = isKey('sprint') ? SPRINT_SPEED : SPEED
 
     if(inputDir.lengthSq() > 0){
         inputDir.normalize()
@@ -117,12 +126,12 @@ onRender(delta=>{
         velocity.x += (moveDir.x * speed - velocity.x) * delta * DAMPING
         velocity.z += (moveDir.z * speed - velocity.z) * delta * DAMPING
 
-        if(onGround) setAction(state('sprint') ? 'sprint' : 'walk')
+        if(onGround) setAnimation(isKey('sprint') ? 'sprint' : 'walk')
 
     }else{
         velocity.x -= velocity.x * delta * DAMPING
         velocity.z -= velocity.z * delta * DAMPING
-        if(onGround) setAction('idle')
+        if(onGround) setAnimation('idle')
     }
 
     // gravity
@@ -130,12 +139,12 @@ onRender(delta=>{
         velocity.y -= GRAVITY * delta
 
     // jump
-    if(state('jump') && onGround){
+    if(isKey('jump') && onGround){
         velocity.y = JUMP
         onGround = false
     }
 
-    if(!onGround) setAction(velocity.y > 0 ? 'jump' : 'fall')
+    if(!onGround) setAnimation(velocity.y > 0 ? 'jump' : 'fall')
 
     mesh.position.addScaledVector(velocity, delta)
 
