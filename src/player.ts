@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import * as CANNON from 'cannon-es'
+import { physicsWorld, slipperyMat, cannonDebugger } from './physics'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { camera, orbit, onRender, scene } from './core'
 import { isKey, onKey } from './input'
@@ -7,15 +9,26 @@ import carSrc from '@/assets/models/cars/sedan.glb'
 
 const SPEED = 3
 const SPRINT_SPEED = 5
-const GRAVITY = 15
-const JUMP = 6
+const JUMP = 12
 const DAMPING = 10
 const ANIM_TRANSITION = .3
+
+const HEIGHT = 0.6
 
 const ANIMATIONS = ['idle', 'walk', 'sprint', 'jump', 'fall'] as const
 
 const mesh = new THREE.Object3D()
 scene.add(mesh)
+const playerBody = new CANNON.Body({
+    type: CANNON.Body.DYNAMIC,
+    shape: new CANNON.Box(new CANNON.Vec3(0.2, HEIGHT/2, 0.2)),
+    position: new CANNON.Vec3(0, 2, 0),
+    fixedRotation: true,
+    material: slipperyMat,
+    mass: 5,
+    linearDamping: 0.3,
+})
+physicsWorld.addBody(playerBody)
 
 const velocity = new THREE.Vector3()
 let onGround = false
@@ -90,7 +103,7 @@ onRender(delta=>{
             .addScaledVector(right, inputDir.x)
             .normalize()
 
-        // rotate
+        // rotate mesh
         const targetQuat = new THREE.Quaternion()
         targetQuat.setFromUnitVectors(
             new THREE.Vector3(0,0,1),
@@ -109,33 +122,48 @@ onRender(delta=>{
         if(onGround) setAnimation('idle')
     }
 
-    // gravity
-    if(!onGround)
-        velocity.y -= GRAVITY * delta
+    if(!onGround) setAnimation(playerBody.velocity.y > 0 ? 'jump' : 'fall')  
+
+    playerBody.velocity = new CANNON.Vec3(velocity.x, playerBody.velocity.y, velocity.z)
 
     // jump
     if(isKey('jump') && onGround){
-        velocity.y = JUMP
-        onGround = false
+        playerBody.applyImpulse(new CANNON.Vec3(0, JUMP, 0))
     }
-
-    if(!onGround) setAnimation(velocity.y > 0 ? 'jump' : 'fall')
-
-    mesh.position.addScaledVector(velocity, delta)
 
     // animation
     if(anim) anim.mixer.update(delta)
 
-    // fake ground
-    if(mesh.position.y < 0){
-        mesh.position.y = 0
-        velocity.y = 0
-        onGround = true
-    }
-
     // orbit
-    orbit.position.x = mesh.position.x
-    orbit.position.y = mesh.position.y + 1
-    orbit.position.z = mesh.position.z
+    orbit.position.x = playerBody.position.x
+    orbit.position.y = playerBody.position.y + 1
+    orbit.position.z = playerBody.position.z
 
+    mesh.position.set(
+        playerBody.position.x,
+        playerBody.position.y - HEIGHT/2,
+        playerBody.position.z
+    );
+
+})
+
+physicsWorld.addEventListener("postStep", () => {
+    onGround = false
+
+    for (let i = 0; i < physicsWorld.contacts.length; i++) {
+        const contact = physicsWorld.contacts[i];
+
+        const isPlayerA = contact.bi === playerBody;
+        const isPlayerB = contact.bj === playerBody;
+
+        if (!isPlayerA && !isPlayerB) continue;
+
+        const normal = contact.ni.clone();
+        if (isPlayerA) normal.negate(normal);
+
+        if (normal.y > 0.5) {
+            onGround = true;
+            break;
+        }
+    }
 })
